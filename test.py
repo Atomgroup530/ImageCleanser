@@ -79,17 +79,23 @@ def benchmark_all_eval(model, criterion, converter, opt, calculate_infer_time=Fa
 
 
 def validation(model, criterion, evaluation_loader, converter, opt):
-    """ validation or evaluation """
+    """ validation or evaluation (accumulates all batches) """
     n_correct = 0
-    norm_ED = 0
+    norm_ED = 0.0
     length_of_data = 0
-    infer_time = 0
+    infer_time = 0.0
     valid_loss_avg = Averager()
+
+    # NEW: accumulate per-sample outputs from all batches
+    all_preds = []
+    all_confs = []
+    all_labels = []
 
     for i, (image_tensors, labels) in enumerate(evaluation_loader):
         batch_size = image_tensors.size(0)
-        length_of_data = length_of_data + batch_size
+        length_of_data += batch_size
         image = image_tensors.to(device)
+
         # For max length prediction
         length_for_pred = torch.IntTensor([opt.batch_max_length] * batch_size).to(device)
         text_for_pred = torch.LongTensor(batch_size, opt.batch_max_length + 1).fill_(0).to(device)
@@ -101,31 +107,24 @@ def validation(model, criterion, evaluation_loader, converter, opt):
             preds = model(image, text_for_pred)
             forward_time = time.time() - start_time
 
-            # Calculate evaluation loss for CTC deocder.
             preds_size = torch.IntTensor([preds.size(1)] * batch_size)
-            # permute 'preds' to use CTCloss format
             if opt.baiduCTC:
                 cost = criterion(preds.permute(1, 0, 2), text_for_loss, preds_size, length_for_loss) / batch_size
-            else:
-                cost = criterion(preds.log_softmax(2).permute(1, 0, 2), text_for_loss, preds_size, length_for_loss)
-
-            # Select max probabilty (greedy decoding) then decode index to character
-            if opt.baiduCTC:
                 _, preds_index = preds.max(2)
                 preds_index = preds_index.view(-1)
+                preds_str = converter.decode(preds_index.data, preds_size.data)
             else:
+                cost = criterion(preds.log_softmax(2).permute(1, 0, 2), text_for_loss, preds_size, length_for_loss)
                 _, preds_index = preds.max(2)
-            preds_str = converter.decode(preds_index.data, preds_size.data)
-        
+                preds_str = converter.decode(preds_index.data, preds_size.data)
         else:
             preds = model(image, text_for_pred, is_train=False)
             forward_time = time.time() - start_time
 
             preds = preds[:, :text_for_loss.shape[1] - 1, :]
-            target = text_for_loss[:, 1:]  # without [GO] Symbol
+            target = text_for_loss[:, 1:]
             cost = criterion(preds.contiguous().view(-1, preds.shape[-1]), target.contiguous().view(-1))
 
-            # select max probabilty (greedy decoding) then decode index to character
             _, preds_index = preds.max(2)
             preds_str = converter.decode(preds_index, length_for_pred)
             labels = converter.decode(text_for_loss[:, 1:], length_for_loss)
@@ -133,58 +132,49 @@ def validation(model, criterion, evaluation_loader, converter, opt):
         infer_time += forward_time
         valid_loss_avg.add(cost)
 
-        # calculate accuracy & confidence score
+        # confidence per time-step → product
         preds_prob = F.softmax(preds, dim=2)
         preds_max_prob, _ = preds_prob.max(dim=2)
-        confidence_score_list = []
+
         for gt, pred, pred_max_prob in zip(labels, preds_str, preds_max_prob):
             if 'Attn' in opt.Prediction:
                 gt = gt[:gt.find('[s]')]
                 pred_EOS = pred.find('[s]')
-                pred = pred[:pred_EOS]  # prune after "end of sentence" token ([s])
+                pred = pred[:pred_EOS]
                 pred_max_prob = pred_max_prob[:pred_EOS]
 
-            # To evaluate 'case sensitive model' with alphanumeric and case insensitve setting.
             if opt.sensitive and opt.data_filtering_off:
-                pred = pred.lower()
-                gt = gt.lower()
-                alphanumeric_case_insensitve = '0123456789abcdefghijklmnopqrstuvwxyz'
-                out_of_alphanumeric_case_insensitve = f'[^{alphanumeric_case_insensitve}]'
-                pred = re.sub(out_of_alphanumeric_case_insensitve, '', pred)
-                gt = re.sub(out_of_alphanumeric_case_insensitve, '', gt)
+                pred = re.sub(r'[^0-9a-z]', '', pred.lower())
+                gt   = re.sub(r'[^0-9a-z]', '', gt.lower())
 
             if pred == gt:
                 n_correct += 1
 
-            '''
-            (old version) ICDAR2017 DOST Normalized Edit Distance https://rrc.cvc.uab.es/?ch=7&com=tasks
-            "For each word we calculate the normalized edit distance to the length of the ground truth transcription."
-            if len(gt) == 0:
-                norm_ED += 1
-            else:
-                norm_ED += edit_distance(pred, gt) / len(gt)
-            '''
-
-            # ICDAR2019 Normalized Edit Distance
+            # ICDAR2019 normalized edit distance (similar to your code)
             if len(gt) == 0 or len(pred) == 0:
-                norm_ED += 0
+                ned = 0.0
             elif len(gt) > len(pred):
-                norm_ED += 1 - edit_distance(pred, gt) / len(gt)
+                ned = 1 - edit_distance(pred, gt) / len(gt)
             else:
-                norm_ED += 1 - edit_distance(pred, gt) / len(pred)
+                ned = 1 - edit_distance(pred, gt) / len(pred)
+            norm_ED += ned
 
-            # calculate confidence score (= multiply of pred_max_prob)
             try:
-                confidence_score = pred_max_prob.cumprod(dim=0)[-1]
+                conf = float(pred_max_prob.cumprod(dim=0)[-1])
             except:
-                confidence_score = 0  # for empty pred case, when prune after "end of sentence" token ([s])
-            confidence_score_list.append(confidence_score)
-            # print(pred, gt, pred==gt, confidence_score)
+                conf = 0.0
 
-    accuracy = n_correct / float(length_of_data) * 100
-    norm_ED = norm_ED / float(length_of_data)  # ICDAR2019 Normalized Edit Distance
+            # accumulate
+            all_preds.append(pred)
+            all_confs.append(conf)
+            all_labels.append(gt)
 
-    return valid_loss_avg.val(), accuracy, norm_ED, preds_str, confidence_score_list, labels, infer_time, length_of_data
+    accuracy = (n_correct / float(length_of_data)) * 100.0 if length_of_data else 0.0
+    norm_ED = (norm_ED / float(length_of_data)) if length_of_data else 0.0
+
+    # RETURN accumulated lists
+    return valid_loss_avg.val(), accuracy, norm_ED, all_preds, all_confs, all_labels, infer_time, length_of_data
+
 
 
 def test(opt):
@@ -221,11 +211,14 @@ def test(opt):
 
     """ evaluation """
     model.eval()
+    dataset_tag = os.path.basename(opt.eval_data.rstrip('/'))
+    if dataset_tag.endswith('_lmdb'):
+        dataset_tag = dataset_tag[:-5]
     with torch.no_grad():
         if opt.benchmark_all_eval:  # evaluation with 10 benchmark evaluation datasets
             benchmark_all_eval(model, criterion, converter, opt)
         else:
-            log = open(f'./result/{opt.exp_name}/log_evaluation.txt', 'a')
+            log = open(f'./result/{opt.exp_name}/{dataset_tag}_log_evaluation.txt', 'a')
             AlignCollate_evaluation = AlignCollate(imgH=opt.imgH, imgW=opt.imgW, keep_ratio_with_pad=opt.PAD)
             eval_data, eval_data_log = hierarchical_dataset(root=opt.eval_data, opt=opt)
             evaluation_loader = torch.utils.data.DataLoader(
@@ -233,12 +226,51 @@ def test(opt):
                 shuffle=False,
                 num_workers=int(opt.workers),
                 collate_fn=AlignCollate_evaluation, pin_memory=True)
-            _, accuracy_by_best_model, _, _, _, _, _, _ = validation(
-                model, criterion, evaluation_loader, converter, opt)
+            loss, acc, normED, preds, confs, labels, infer_time, n = validation(
+    model, criterion, evaluation_loader, converter, opt
+            )
+            # ---- write per-sample results + compute accuracy from per-sample ----
+            import csv
+            import pandas as pd
+            from nltk.metrics.distance import edit_distance
+
+            # Collect per-sample results
+            rows = []
+            for i, (gt, pred, conf) in enumerate(zip(labels, preds, confs)):
+                correct = int(gt == pred)
+                if len(gt) == 0 or len(pred) == 0:
+                    norm_ed = 0
+                elif len(gt) > len(pred):
+                    norm_ed = 1 - edit_distance(pred, gt) / len(gt)
+                else:
+                    norm_ed = 1 - edit_distance(pred, gt) / len(pred)
+                rows.append({
+                    "idx": i,
+                    "ground_truth": gt,
+                    "prediction": pred,
+                    "confidence": float(conf),
+                    "correct": correct,
+                    "norm_edit_distance": norm_ed
+                })
+
+            # Convert to DataFrame
+            df = pd.DataFrame(rows)
+
+            # Save to CSV (automatically creates folder if needed)
+            out_csv = f'./result/{opt.exp_name}/{dataset_tag}_detailed_results.csv'
+            df.to_csv(out_csv, index=False)
+            print(f"✅ Results saved to {out_csv}")
+            
             log.write(eval_data_log)
-            print(f'{accuracy_by_best_model:0.3f}')
-            log.write(f'{accuracy_by_best_model:0.3f}\n')
+            print(f'Overall Accuracy (from validation): {acc:.3f}%')          # uses acc returned by validation
+            log.write(f'Overall Accuracy (from validation): {acc:.3f}%\n')
+            print(f'Overall Normalized Edit Distance: {normED:.3f}')          # uses normED returned by validation
+            log.write(f'Overall Normalized Edit Distance: {normED:.3f}\n')          # uses normED returned by validation
+            print(f'Avg inference time: {infer_time/n:.6f} s/image')
+            log.write(f'Avg inference time: {infer_time/n:.6f} s/image\n')
             log.close()
+
+            return df
 
 
 if __name__ == '__main__':
