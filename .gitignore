@@ -11,7 +11,7 @@
 *.zip
 *.eps
 *.pdf
-
+**/datasets/*
 ### Linux ###
 *~
 
