@@ -1,3 +1,36 @@
+# Link to our datasets: https://drive.google.com/file/d/1Gk6TgEfBoSy3j8Cp05AWgCq8qU0zqp9O/view?usp=drive_link\
+
+# ImageCleanser Pipeline- Denoising
+
+This script is a Colab-generated pipeline that:
+1) denoises document images  
+2) builds LMDB datasets  
+3) runs OCR evaluation (via `test.py`)  
+4) outputs CSV results + plots
+
+## Requirements
+- Python 3.9+ (Colab recommended)
+- Packages (typical): `opencv-python`, `numpy`, `pandas`, `matplotlib`, `tqdm`, `lmdb`, `pillow`, `torch`, `torchvision`
+- 
+## Parameters setup
+Set the following parameters to choose cells you want to run.
+    "on_Google_drive": True if running on Google Colab.
+    "download_dataset": True if not yet download the datasets, If you need to download the datasets, follow the output in the cell.
+    "download_model": True if not yet download the models, If you need to download the models, follow the output in the cell.
+    "evaluate_model": True if you want to run the baseline model for evaluation.
+    "evaluate_dataset": True if you want to run OCR on the original dataset.
+    "Apply_Denoise": True if you want to run denoising on all the images in the datasets.
+    "Run_OCR_Denoised": True if you want to run OCR on denoised dataset.
+    "Run_OCR_Filtered_Denoised": True if you want to run OCR on filtered dataset (denoised images with baseline NED<1).
+    -Denoise parameters
+    p_norm_max = 2000        # histogram normalization range for CC size thresholding
+    p_num_iterations = 5     # number of denoising refinement passes
+    p_size_scale = 0.35      # scale factor controlling noise-size threshold
+    p_min_size = 4           # minimum CC size always treated as noise
+
+
+
+
 # What Is Wrong With Scene Text Recognition Model Comparisons? Dataset and Model Analysis
 | [paper](https://arxiv.org/abs/1904.01906) | [training and evaluation data](https://github.com/clovaai/deep-text-recognition-benchmark#download-lmdb-dataset-for-traininig-and-evaluation-from-here) | [failure cases and cleansed label](https://github.com/clovaai/deep-text-recognition-benchmark#download-failure-cases-and-cleansed-label-from-here) | [pretrained model](https://www.dropbox.com/sh/j3xmli4di1zuv3s/AAArdcPgz7UFxIHUuKNOeKv_a?dl=0) | [Baidu ver(passwd:rryk)](https://pan.baidu.com/s/1KSNLv4EY3zFWHpBYlpFCBQ) |
 
