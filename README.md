@@ -14,19 +14,19 @@ This script is a Colab-generated pipeline that:
 - 
 ## Parameters setup
 Set the following parameters to choose cells you want to run. <br>
-    "on_Google_drive": True if running on Google Colab. <br>
-    "download_dataset": True if not yet download the datasets, If you need to download the datasets, follow the output in the cell. <br>
-    "download_model": True if not yet download the models, If you need to download the models, follow the output in the cell. <br>
-    "evaluate_model": True if you want to run the baseline model for evaluation. <br>
-    "evaluate_dataset": True if you want to run OCR on the original dataset. <br>
-    "Apply_Denoise": True if you want to run denoising on all the images in the datasets. <br>
-    "Run_OCR_Denoised": True if you want to run OCR on denoised dataset. <br>
-    "Run_OCR_Filtered_Denoised": True if you want to run OCR on filtered dataset (denoised images with baseline NED<1). <br>
+    `on_Google_drive`: True if running on Google Colab. <br>
+    `download_dataset`: True if not yet download the datasets, If you need to download the datasets, follow the output in the cell. <br>
+    `download_model`: True if not yet download the models, If you need to download the models, follow the output in the cell. <br>
+    `evaluate_model`: True if you want to run the baseline model for evaluation. <br>
+    `evaluate_dataset`": True if you want to run OCR on the original dataset. <br>
+    `Apply_Denoise`: True if you want to run denoising on all the images in the datasets. <br>
+    `Run_OCR_Denoised`: True if you want to run OCR on denoised dataset. <br>
+    `Run_OCR_Filtered_Denoised`": True if you want to run OCR on filtered dataset (denoised images with baseline NED<1). <br>
     -Denoise parameters <br>
-    p_norm_max = 2000        # histogram normalization range for CC size thresholding <br>
-    p_num_iterations = 5     # number of denoising refinement passes <br>
-    p_size_scale = 0.35      # scale factor controlling noise-size threshold <br>
-    p_min_size = 4           # minimum CC size always treated as noise <br>
+    `p_norm_max` = 2000        # histogram normalization range for CC size thresholding <br>
+    `p_num_iterations` = 5     # number of denoising refinement passes <br>
+    `p_size_scale` = 0.35      # scale factor controlling noise-size threshold <br>
+    `p_min_size` = 4           # minimum CC size always treated as noise <br>
  
 
 
