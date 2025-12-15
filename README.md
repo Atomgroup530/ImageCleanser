@@ -1,6 +1,6 @@
 # Link to our datasets: https://drive.google.com/file/d/1Gk6TgEfBoSy3j8Cp05AWgCq8qU0zqp9O/view?usp=drive_link\
 
-# ImageCleanser Pipeline- Denoising
+# ImageCleanser Pipeline- Denoising (pipeline_denoise.ipynb)
 
 This script is a Colab-generated pipeline that:
 1) denoises document images  
@@ -8,10 +8,17 @@ This script is a Colab-generated pipeline that:
 3) runs OCR evaluation (via `test.py`)  
 4) outputs CSV results + plots
 
+# ImageCleanser Pipeline- Contrast Enhancement (pipeline_contrast.ipynb)
+1) Enhance contrast of document images
+2) 1) denoises document images  
+2) builds LMDB datasets  
+3) runs OCR evaluation (via `test.py`)  
+4) outputs CSV results + plots (some are in figures folder)
+
 ## Requirements
 - Python 3.9+ (Colab recommended)
-- Packages (typical): `opencv-python`, `numpy`, `pandas`, `matplotlib`, `tqdm`, `lmdb`, `pillow`, `torch`, `torchvision`
-- 
+- Packages (typical): `opencv-python`, `numpy`, `pandas`, `matplotlib`, `tqdm`, `lmdb`, `pillow`, `torch`, `torchvision`, `parameters`, `fire`, `nltk`, `natsort`, `datasets`, `gdown`, `scikit-image`
+
 ## Parameters setup
 Set the following parameters to choose cells you want to run. <br>
     `on_Google_drive`: True if running on Google Colab. <br>
