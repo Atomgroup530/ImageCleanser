@@ -15,6 +15,15 @@ This script is a Colab-generated pipeline that:
 3) runs OCR evaluation (via `test.py`)  
 4) outputs CSV results + plots (some are in figures folder)
 
+# ImageCleanser Pipeline - Deblurring (`pipeline_deblurring.ipynb`)
+1) Open `pipeline_deblurring.ipynb` (Jupyter or Colab).  
+2) Run the setup/import cells.  
+3) Set input paths for `D'` (and labels if needed).  
+4) Set output paths for enhanced images and results.  
+5) Run all remaining cells to generate deblurred outputs and OCR scores.  
+6) Check saved outputs: deblurred images, CSV results, and plots/figures.
+
+
 ## Requirements
 - Python 3.9+ (Colab recommended)
 - Packages (typical): `opencv-python`, `numpy`, `pandas`, `matplotlib`, `tqdm`, `lmdb`, `pillow`, `torch`, `torchvision`, `parameters`, `fire`, `nltk`, `natsort`, `datasets`, `gdown`, `scikit-image`
